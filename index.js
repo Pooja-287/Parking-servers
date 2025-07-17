@@ -19,7 +19,7 @@ app.use(express.json());
 
 app.use(express.urlencoded({ extended: false }));
 
-app.get("/api/ping", (req, res) => {
+app.get("/", (req, res) => {
   res.status(200).send("Server is awake 🚀");
 });
 // Routes
