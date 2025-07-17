@@ -59,7 +59,7 @@ router.get(
   vehicleController.getRevenueReport
 );
 
-// Ping route for uptime check
+// Route: /api/ping
 router.get("/api/ping", (req, res) => {
   res.send("Server is alive!");
 });
