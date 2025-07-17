@@ -61,8 +61,10 @@ router.get(
 
 // Ping route for uptime check
 router.get("/api/ping", (req, res) => {
-  res.send("Server is alive! 🚗");
+  res.send("Server is alive!");
 });
+
+
 // Admin-only
 router.post("/api/create/:id", verifyToken, staffController.createStaff);
 router.get("/api/all", verifyToken, staffController.getAllStaffs);
