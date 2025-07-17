@@ -19,9 +19,7 @@ app.use(express.json());
 
 app.use(express.urlencoded({ extended: false }));
 
-app.get("/", (req, res) => {
-  res.status(200).send("Server is awake 🚀");
-});
+
 // Routes
 app.use("/", APIRouter);
 const PORT = process.env.PORT || 5000;
