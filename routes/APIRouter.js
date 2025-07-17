@@ -59,6 +59,11 @@ router.get(
   vehicleController.getRevenueReport
 );
 
+// Ping route for uptime check
+router.get("/api/ping", (req, res) => {
+  res.status(200).send("Server is awake 🚗");
+});
+
 // Admin-only
 router.post("/api/create/:id", verifyToken, staffController.createStaff);
 router.get("/api/all", verifyToken, staffController.getAllStaffs);
