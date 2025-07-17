@@ -19,6 +19,9 @@ app.use(express.json());
 
 app.use(express.urlencoded({ extended: false }));
 
+app.get("/api/ping", (req, res) => {
+  res.status(200).send("Server is awake 🚀");
+});
 // Routes
 app.use("/", APIRouter);
 const PORT = process.env.PORT || 5000;
