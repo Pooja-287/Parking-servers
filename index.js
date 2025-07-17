@@ -19,7 +19,7 @@ app.use(express.json());
 
 app.use(express.urlencoded({ extended: false }));
 
-
+app.use("/api", APIRouter); // ✅ This mounts "/api/ping"
 // Routes
 app.use("/", APIRouter);
 const PORT = process.env.PORT || 5000;
