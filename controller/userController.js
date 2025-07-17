@@ -314,11 +314,26 @@ const getAdminById = async (req, res) => {
 
 const updateAdmin = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, avatar } = req.body;
 
-    const updateData = { username };
+    const updateData = {};
+    if (username?.trim()) {
+      updateData.username = username.trim();
+    }
+
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
+    }
+
+    if (avatar?.startsWith("data:image")) {
+      updateData.avatar = avatar; // base64
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields provided for update",
+      });
     }
 
     const updatedAdmin = await Admin.findByIdAndUpdate(
