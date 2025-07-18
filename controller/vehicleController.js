@@ -583,53 +583,39 @@ const getVehicleByNumberPlate = async (req, res) => {
 
 const getRevenueReport = async (req, res) => {
   try {
-    const user = req.user;
-    const userId = user._id;
-    const role = user.role;
+    const { staffId } = req.query;
+    const userId = req.user._id;
+    const role = req.user.role;
 
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    let filter = {};
 
-    // Use updatedAt instead of exitDateTime
-    const filter = {
-      isCheckedOut: true,
-      updatedAt: { $gte: startOfDay, $lte: endOfDay },
-    };
-
-    if (role === "staff") {
+    if (role === 'staff') {
       filter.checkInBy = userId;
-    } else if (role === "admin") {
-      filter.adminId = userId;
+    } else if (role === 'admin') {
+      if (!staffId) {
+        return res.status(400).json({ error: 'staffId is required for admin' });
+      }
+      filter.checkInBy = staffId;
     }
 
-    const checkouts = await VehicleCheckin.find(filter);
+    const vehicles = await VehicleCheckin.find(filter).sort({ date: -1 });
 
-    const totalRevenue = checkouts.reduce(
-      (sum, v) => sum + (v.amount ?? v.totalAmount ?? 0),
-      0
-    );
-
-    const formattedVehicles = checkouts.map((v) => ({
-      name: v.name,
-      numberPlate: v.vehicleNo,
-      vehicleType: v.vehicleType,
-      amount: ` ₹${(v.amount ?? v.totalAmount ?? 0).toFixed(2)}`,
-      createdBy: v.checkedOutBy || "N/A",
+    const formattedVehicles = vehicles.map(v => ({
+      ...v._doc,
+      date: v.date ? new Date(v.date).toISOString() : null
     }));
 
-    res.status(200).json({
+    const revenue = vehicles.reduce((sum, v) => sum + v.amount, 0);
+
+    res.json({
       role,
-      totalVehicles: checkouts.length,
-      revenue: `₹${totalRevenue.toFixed(2)}`,
+      totalVehicles: vehicles.length,
+      revenue,
       vehicles: formattedVehicles,
     });
-  } catch (error) {
-    console.error("getRevenueReport error:", error);
-    res.status(500).json({
-      message: "Failed to get revenue report",
-      error: error.message,
-    });
+  } catch (err) {
+    console.error('Error in getRevenueReport:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
