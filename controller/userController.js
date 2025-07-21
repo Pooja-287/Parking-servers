@@ -325,8 +325,8 @@ const updateAdmin = async (req, res) => {
       updateData.password = await bcrypt.hash(password, 10);
     }
 
-    if (avatar?.startsWith("data:image")) {
-      updateData.profileImage = avatar; // base64
+    if (profileImage?.startsWith("data:image")) {
+      updateData.profileImage = profileImage; // base64
     }
 
     if (Object.keys(updateData).length === 0) {
