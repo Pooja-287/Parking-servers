@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { v4 as uuidv4 } from "uuid";
 import Staff from "../model/staff.js";
 import mongoose from "mongoose";
-import { sendWhatsAppTemplate } from "../utils/sendWhatsAppTemplate.js";
+// import { sendWhatsAppTemplate } from "../utils/sendWhatsAppTemplate.js";
 
 // ✅ Capitalize helper
 const capitalize = (str) =>
@@ -118,7 +118,7 @@ const Checkin = async (req, res) => {
     });
 
     await newCheckin.save();
-    await sendWhatsAppTemplate(imageUrl);
+    // await sendWhatsAppTemplate(imageUrl);
 
     return res.status(201).json({
       message: "✅ Vehicle checked in successfully",
@@ -585,20 +585,20 @@ const getRevenueReport = async (req, res) => {
 
     let filter = {};
 
-    if (role === 'staff') {
+    if (role === "staff") {
       filter.checkInBy = userId;
-    } else if (role === 'admin') {
+    } else if (role === "admin") {
       if (!staffId) {
-        return res.status(400).json({ error: 'staffId is required for admin' });
+        return res.status(400).json({ error: "staffId is required for admin" });
       }
       filter.checkInBy = staffId;
     }
 
     const vehicles = await VehicleCheckin.find(filter).sort({ date: -1 });
 
-    const formattedVehicles = vehicles.map(v => ({
+    const formattedVehicles = vehicles.map((v) => ({
       ...v._doc,
-      date: v.date ? new Date(v.date).toISOString() : null
+      date: v.date ? new Date(v.date).toISOString() : null,
     }));
 
     const revenue = vehicles.reduce((sum, v) => sum + v.amount, 0);
@@ -610,8 +610,8 @@ const getRevenueReport = async (req, res) => {
       vehicles: formattedVehicles,
     });
   } catch (err) {
-    console.error('Error in getRevenueReport:', err);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Error in getRevenueReport:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };
 
