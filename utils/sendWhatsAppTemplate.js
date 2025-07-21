@@ -3,8 +3,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const accountSid = "AC970dc58a4fa4be2a252337ad44f511d7";
-const authToken = "c8521f454891615800e1ca56b59edcba";
+const accountSid = "";
+const authToken = "";
 const client = require("twilio")(accountSid, authToken);
 client.messages
   .create({
