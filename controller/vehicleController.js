@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { v4 as uuidv4 } from "uuid";
 import Staff from "../model/staff.js";
 import mongoose from "mongoose";
-// import { sendWhatsAppTemplate } from "../utils/sendWhatsAppTemplate.js";
+import { sendWhatsAppCheckIn } from "../utils/sendWhatsAppTemplate.js";
 
 // ✅ Capitalize helper
 const capitalize = (str) =>
@@ -24,12 +24,10 @@ const Checkin = async (req, res) => {
       req.body;
 
     const user = req.user;
-
-    // ✅ Validate required fields
     if (
       !name ||
-      !vehicleType ||
       !vehicleNo ||
+      !vehicleType ||
       !mobile ||
       !paymentMethod ||
       !days
@@ -37,50 +35,35 @@ const Checkin = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // ✅ Clean & validate vehicle number
     const cleanedPlate = vehicleNo.replace(/\s/g, "").toUpperCase();
-
-    if (vehicleNo !== cleanedPlate) {
-      return res.status(400).json({
-        message: "Number plate must be in UPPERCASE without spaces.",
-      });
-    }
-
-    // ✅ Clean vehicle type safely
-    const cleanedType = (vehicleType || "").trim().toLowerCase();
-
+    const cleanedType = vehicleType.trim().toLowerCase();
     const userRole = user.role;
     const checkInBy = user._id;
     const adminId = userRole === "admin" ? checkInBy : user.adminId;
 
-    // ✅ Fetch price document
+    // Check pricing
     const priceDoc = await Price.findOne({ adminId });
-
-    // ✅ Guard clause for missing dailyPrices
     if (!priceDoc || typeof priceDoc.dailyPrices !== "object") {
-      return res.status(400).json({
-        message: "Daily prices are not set for this admin.",
-      });
+      return res
+        .status(400)
+        .json({ message: "Daily prices are not set for this admin." });
     }
 
-    // ✅ Get rate for cleaned vehicle type
     const rateStr = priceDoc.dailyPrices[cleanedType];
-
     if (!rateStr || rateStr === "0") {
       return res.status(400).json({
-        message: `Daily price for "${cleanedType}" is missing or zero.`,
+        message: ` Daily price for "${cleanedType}" is missing or zero.`,
       });
     }
 
     const rate = Number(rateStr);
-
     if (isNaN(rate)) {
-      return res.status(400).json({
-        message: `Rate for "${cleanedType}" is not a valid number.`,
-      });
+      return res
+        .status(400)
+        .json({ message: `Rate for "${cleanedType}" is not a valid number.` });
     }
 
-    // ✅ Check if already checked in
+    // Prevent duplicate check-in
     const alreadyCheckedIn = await VehicleCheckin.findOne({
       vehicleNo: cleanedPlate,
       isCheckedOut: false,
@@ -88,18 +71,16 @@ const Checkin = async (req, res) => {
 
     if (alreadyCheckedIn) {
       return res.status(400).json({
-        message: `Vehicle ${cleanedPlate} is already checked in since ${convertToISTString(
-          alreadyCheckedIn.createdAt
-        )}`,
+        message: ` Vehicle ${cleanedPlate} is already checked in.`,
       });
     }
 
-    // ✅ Generate token & QR
+    // Generate token and QR
     const tokenId = uuidv4();
-    const qrCode = await QRCode.toDataURL(tokenId);
+    const qrCodeBase64 = await QRCode.toDataURL(tokenId);
+    const url = await uploadQR(qrCodeBase64);
 
-    const imageUrl = await uploadQR(qrCode);
-    // ✅ Save check-in data
+    // Save check-in
     const newCheckin = new VehicleCheckin({
       name,
       vehicleNo: cleanedPlate,
@@ -113,23 +94,32 @@ const Checkin = async (req, res) => {
       adminId,
       checkInBy,
       tokenId,
-      qrCode: imageUrl,
+      qrCode: qrCodeBase64,
       isCheckedOut: false,
     });
 
     await newCheckin.save();
-    // await sendWhatsAppTemplate(imageUrl);
+
+    // Send WhatsApp message with QR
+    try {
+      const message = `✅ Hello ${name}, your ${cleanedType} (${cleanedPlate}) has been checked in for ${days} day(s).\n🧾 Total: ₹${
+        rate * days
+      }\n💳 Payment: ${paymentMethod}\n\n📎 Please scan the QR below to show your token.`;
+      await sendWhatsAppCheckIn(mobile, url, message);
+    } catch (err) {
+      console.warn("⚠ WhatsApp message failed:", err.message);
+    }
 
     return res.status(201).json({
       message: "✅ Vehicle checked in successfully",
       tokenId,
+      qrCode: qrCodeBase64,
     });
   } catch (error) {
-    console.error("❌ Check-in error:", error);
-    return res.status(500).json({
-      message: "Internal Server Error",
-      error: error.message,
-    });
+    console.error("❌ Check-in error:", error.message);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
   }
 };
 

@@ -1,71 +1,28 @@
-// import axios from "axios";
+import twilio from "twilio";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const accountSid = "";
-const authToken = "";
-const client = require("twilio")(accountSid, authToken);
-client.messages
-  .create({
-    from: "whatsapp:+14155238886",
-    contentSid: "",
-    contentVariables: '{"1":"12/1","2":"3pm"}',
-    to: "whatsapp:+91**********",
-  })
-  .then((message) => console.log(message.sid))
-  .done();
+const accountSid = process.env.TWILLIO_SID;
+const authToken = process.env.TWILLIO_TOKEN;
+const client = twilio(accountSid, authToken);
 
-// // Headers
-// const headers = {
-//   Authorization: `Bearer ${process.env.WHATSAPP_API}`,
-//   "Content-Type": "application/json",
-// };
+export const sendWhatsAppCheckIn = async (to, imageUrl, tokenId) => {
+  try {
+    const response = await client.messages.create({
+      from: "whatsapp:+14155238886",
+      to: `whatsapp:+91${to}`,
+      body: `✅ Vehicle Checked-in Successfully\n\n🔑 Token ID: ${tokenId}`,
+      mediaUrl: [`${imageUrl}`],
+    });
 
-// export async function sendWhatsAppTemplate(imageUrl) {
-//   try {
-//     const payload = {
-//       messaging_product: "whatsapp",
-//       to: "91**********",
-//       type: "template",
-//       template: {
-//         name: "check_in_template",
-//         language: { code: "en" },
-//         components: [
-//           {
-//             type: "header",
-//             parameters: [
-//               {
-//                 type: "image",
-//                 image: {
-//                   link: imageUrl,
-//                 },
-//               },
-//             ],
-//           },
-//           {
-//             type: "body",
-//             parameters: [{ type: "text", text: "your_token_value" }],
-//           },
-//         ],
-//       },
-//     };
-
-//     const response = await axios.post(process.env.WHATSAPP_URL, payload, {
-//       headers,
-//     });
-
-//     if (response.status === 200) {
-//       console.log("Template message sent successfully:", response.data);
-//       return response.data;
-//     } else {
-//       throw new Error(`Failed to send template message: ${response.status}`);
-//     }
-//   } catch (error) {
-//     console.error(
-//       "Error sending template:",
-//       error.response?.data || error.message
-//     );
-//     throw error;
-//   }
-// }
+    console.log(" WhatsApp message sent. SID:", response.sid);
+    return response.sid;
+  } catch (error) {
+    console.error(" WhatsApp sending failed:", error?.message || error);
+    if (error?.code) {
+      console.error("🔎 Twilio Error Code:", error.code);
+    }
+    throw new Error("Failed to send WhatsApp message.");
+  }
+};
