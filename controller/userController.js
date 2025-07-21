@@ -314,7 +314,7 @@ const getAdminById = async (req, res) => {
 
 const updateAdmin = async (req, res) => {
   try {
-    const { username, password, avatar } = req.body;
+    const { username, password, profileImage } = req.body;
 
     const updateData = {};
     if (username?.trim()) {
@@ -326,7 +326,7 @@ const updateAdmin = async (req, res) => {
     }
 
     if (avatar?.startsWith("data:image")) {
-      updateData.avatar = avatar; // base64
+      updateData.profileImage = avatar; // base64
     }
 
     if (Object.keys(updateData).length === 0) {

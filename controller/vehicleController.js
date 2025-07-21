@@ -20,19 +20,20 @@ const convertToISTString = (date) => {
 
 const Checkin = async (req, res) => {
   try {
-    const {
-      name,
-      vehicleNo,
-      vehicleType,
-      mobile,
-      paymentMethod,
-      days,
-    } = req.body;
+    const { name, vehicleNo, vehicleType, mobile, paymentMethod, days } =
+      req.body;
 
     const user = req.user;
 
     // ✅ Validate required fields
-    if (!name || !vehicleType || !vehicleNo || !mobile || !paymentMethod || !days) {
+    if (
+      !name ||
+      !vehicleType ||
+      !vehicleNo ||
+      !mobile ||
+      !paymentMethod ||
+      !days
+    ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -54,12 +55,6 @@ const Checkin = async (req, res) => {
 
     // ✅ Fetch price document
     const priceDoc = await Price.findOne({ adminId });
-
-    // 🪵 Debug logs
-    console.log("🧾 priceDoc:", priceDoc);
-    console.log("🚗 vehicleType:", cleanedType);
-    console.log("🔑 dailyPrices keys:", Object.keys(priceDoc?.dailyPrices || {}));
-    console.log("💰 rate value:", priceDoc?.dailyPrices?.[cleanedType]);
 
     // ✅ Guard clause for missing dailyPrices
     if (!priceDoc || typeof priceDoc.dailyPrices !== "object") {
@@ -103,6 +98,7 @@ const Checkin = async (req, res) => {
     const tokenId = uuidv4();
     const qrCode = await QRCode.toDataURL(tokenId);
 
+    const imageUrl = await uploadQR(qrCode);
     // ✅ Save check-in data
     const newCheckin = new VehicleCheckin({
       name,
@@ -117,11 +113,12 @@ const Checkin = async (req, res) => {
       adminId,
       checkInBy,
       tokenId,
-      qrCode,
+      qrCode: imageUrl,
       isCheckedOut: false,
     });
 
     await newCheckin.save();
+    await sendWhatsAppTemplate(imageUrl);
 
     return res.status(201).json({
       message: "✅ Vehicle checked in successfully",
@@ -135,10 +132,6 @@ const Checkin = async (req, res) => {
     });
   }
 };
-
-
-
-
 
 const Checkout = async (req, res) => {
   try {
@@ -174,7 +167,9 @@ const Checkout = async (req, res) => {
     const priceData = await Price.findOne({ adminId });
 
     if (!priceData || typeof priceData.dailyPrices !== "object") {
-      return res.status(404).json({ message: "No daily pricing info found for this admin" });
+      return res
+        .status(404)
+        .json({ message: "No daily pricing info found for this admin" });
     }
 
     // ✅ Clean vehicleType before using it as key
@@ -185,7 +180,9 @@ const Checkout = async (req, res) => {
     const price = Number(priceStr);
 
     if (!priceStr || isNaN(price)) {
-      return res.status(400).json({ message: `Invalid or missing price for ${vehicleType}` });
+      return res
+        .status(400)
+        .json({ message: `Invalid or missing price for ${vehicleType}` });
     }
 
     // 4. Calculate charges
@@ -204,12 +201,16 @@ const Checkout = async (req, res) => {
       const pricePerMinute = price / 60;
       const chargeableMinutes = Math.max(1, Math.ceil(minutesUsed));
       totalAmount = parseFloat((chargeableMinutes * pricePerMinute).toFixed(2));
-      readableDuration = `${chargeableMinutes} minute${chargeableMinutes > 1 ? "s" : ""}`;
+      readableDuration = `${chargeableMinutes} minute${
+        chargeableMinutes > 1 ? "s" : ""
+      }`;
     } else {
       const days = timeDiffMs / (1000 * 60 * 60 * 24);
       const chargeableDays = Math.max(1, Math.ceil(days));
       totalAmount = chargeableDays * price;
-      readableDuration = `${chargeableDays} day${chargeableDays > 1 ? "s" : ""}`;
+      readableDuration = `${chargeableDays} day${
+        chargeableDays > 1 ? "s" : ""
+      }`;
     }
 
     // 5. Update checkout details
@@ -447,8 +448,6 @@ const getVehicleById = async (req, res) => {
   }
 };
 
-
-
 const getVehicleByPlate = async (req, res) => {
   try {
     const numberPlate = req.params.numberPlate.toUpperCase().replace(/\s/g, "");
@@ -517,7 +516,6 @@ const getVehicleByPlate = async (req, res) => {
 //   }
 // };
 
-
 const getVehicleByToken = async (req, res) => {
   try {
     const { tokenId } = req.params;
@@ -553,8 +551,6 @@ const getVehicleByToken = async (req, res) => {
       .json({ message: "Internal Server Error", error: error.message });
   }
 };
-
-
 
 const getVehicleByNumberPlate = async (req, res) => {
   try {
