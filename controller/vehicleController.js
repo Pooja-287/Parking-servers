@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { v4 as uuidv4 } from "uuid";
 import Staff from "../model/staff.js";
 import mongoose from "mongoose";
-import { sendWhatsAppCheckIn } from "../utils/sendWhatsAppTemplate.js";
+// import { sendWhatsAppCheckIn } from "../utils/sendWhatsAppTemplate.js";
 
 // ✅ Capitalize helper
 const capitalize = (str) =>
@@ -125,7 +125,7 @@ const Checkin = async (req, res) => {
 
 const Checkout = async (req, res) => {
   try {
-    const { tokenId } = req.body;
+    const { tokenId, previewOnly } = req.body;
     const user = req.user;
 
     if (!tokenId) {
@@ -141,31 +141,27 @@ const Checkout = async (req, res) => {
         .json({ message: "No check-in found with this tokenId" });
     }
 
-    if (vehicle.isCheckedOut) {
+    if (vehicle.isCheckedOut && !previewOnly) {
       return res.status(400).json({
         message: "Vehicle is already checked out",
         exitTimeIST: convertToISTString(vehicle.exitDateTime),
       });
     }
 
-    // 2. Get adminId from user (middleware)
+    // 2. Get adminId
     const userRole = user.role;
     const userId = user._id;
     const adminId = userRole === "admin" ? userId : user.adminId;
 
-    // 3. Get pricing info
+    // 3. Get pricing
     const priceData = await Price.findOne({ adminId });
-
     if (!priceData || typeof priceData.dailyPrices !== "object") {
       return res
         .status(404)
         .json({ message: "No daily pricing info found for this admin" });
     }
 
-    // ✅ Clean vehicleType before using it as key
     const vehicleType = (vehicle.vehicleType || "").trim().toLowerCase();
-
-    // ✅ Get rate from dailyPrices
     const priceStr = priceData.dailyPrices?.[vehicleType];
     const price = Number(priceStr);
 
@@ -175,45 +171,76 @@ const Checkout = async (req, res) => {
         .json({ message: `Invalid or missing price for ${vehicleType}` });
     }
 
-    // 4. Calculate charges
-    const exitTime = new Date();
-    const entryTime = new Date(vehicle.entryDateTime);
-    const timeDiffMs = exitTime - entryTime;
-    const minutesUsed = timeDiffMs / (1000 * 60);
+    // 4. Calculate date-based difference (no time, only date)
+    const entryDate = new Date(vehicle.entryDateTime);
+    const exitDate = new Date();
 
-    let totalAmount = 0;
-    let readableDuration = "";
+    const getDateOnly = (date) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-    // Default to perDay pricing
-    const priceType = priceData.priceType || "perDay";
+    const cleanEntry = getDateOnly(entryDate);
+    const cleanExit = getDateOnly(exitDate);
 
-    if (priceType === "perHour") {
-      const pricePerMinute = price / 60;
-      const chargeableMinutes = Math.max(1, Math.ceil(minutesUsed));
-      totalAmount = parseFloat((chargeableMinutes * pricePerMinute).toFixed(2));
-      readableDuration = `${chargeableMinutes} minute${
-        chargeableMinutes > 1 ? "s" : ""
-      }`;
-    } else {
-      const days = timeDiffMs / (1000 * 60 * 60 * 24);
-      const chargeableDays = Math.max(1, Math.ceil(days));
-      totalAmount = chargeableDays * price;
-      readableDuration = `${chargeableDays} day${
-        chargeableDays > 1 ? "s" : ""
-      }`;
+    let usedDays = 0;
+    let tempDate = new Date(cleanEntry);
+    while (tempDate < cleanExit) {
+      usedDays++;
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+    usedDays = Math.max(1, usedDays);
+
+    const paidDays = Number(vehicle.paidDays || 0);
+    const paidAmount = paidDays * price;
+    const extraDays = Math.max(0, usedDays - paidDays);
+    const extraAmount = extraDays * price;
+    const totalAmount = paidAmount + extraAmount;
+    const readableDuration = ` ${usedDays} day${usedDays > 1 ? "s" : ""}`;
+
+    // 👇 If previewOnly is true, just return the info without saving
+    if (previewOnly) {
+      return res.status(200).json({
+        message: "Preview before checkout",
+        data: {
+          name: vehicle.name,
+          mobileNumber: vehicle.mobile,
+          vehicleType: vehicle.vehicleType,
+          numberPlate: vehicle.vehicleNo,
+          table: {
+            entryDate: cleanEntry.toLocaleDateString(),
+            currentDate: cleanExit.toLocaleDateString(),
+            timeUsed: readableDuration,
+            perDayRate: ` ₹${price}`,
+            paidDays: vehicle.paidDays,
+            paidAmount: `₹${paidAmount}`,
+            extraDays: extraDays,
+            extraAmount: ` ₹${extraAmount}`,
+            totalAmount: `₹${totalAmount}`,
+          },
+        },
+      });
     }
 
-    // 5. Update checkout details
-    vehicle.exitDateTime = exitTime;
+    // 5. Proceed to checkout
+    vehicle.extraDays = extraDays;
+    vehicle.extraAmount = extraAmount;
     vehicle.totalAmount = totalAmount;
-    vehicle.totalParkedHours = (timeDiffMs / (1000 * 60 * 60)).toFixed(2);
+    vehicle.exitDateTime = cleanExit;
+    vehicle.totalParkedHours = `${usedDays * 24}`;
     vehicle.isCheckedOut = true;
     vehicle.checkedOutBy = user.name || user.username || "Unknown";
     vehicle.checkedOutByRole = userRole;
 
     await vehicle.save();
 
-    // 6. Respond with receipt
+    // 6. Send WhatsApp message
+    try {
+      const msg = `🚗 Hello ${vehicle.name}, your ${vehicle.vehicleType} (${vehicle.vehicleNo}) has been successfully checked out.\n⏱ Duration: ${readableDuration}\n💰 Amount Paid: ₹${totalAmount}`;
+      await sendWhatsAppMessage(vehicle.mobile, msg);
+    } catch (err) {
+      console.warn("⚠ WhatsApp message failed during checkout:", err.message);
+    }
+
+    // 7. Send final receipt
     res.status(200).json({
       message: "✅ Vehicle checked out successfully",
       receipt: {
@@ -222,17 +249,20 @@ const Checkout = async (req, res) => {
         vehicleType: vehicle.vehicleType,
         numberPlate: vehicle.vehicleNo,
         table: {
-          entryTime: entryTime.toLocaleTimeString(),
-          exitTime: exitTime.toLocaleTimeString(),
+          entryDate: cleanEntry.toLocaleDateString(),
+          exitDate: cleanExit.toLocaleDateString(),
           timeUsed: readableDuration,
-          priceType: priceType,
-          price: `₹${price}`,
-          amountPaid: `₹${totalAmount}`,
+          perDayRate: `₹${price}`,
+          paidDays: vehicle.paidDays,
+          paidAmount: `₹${paidAmount}`,
+          extraDays: extraDays,
+          extraAmount: `₹${extraAmount}`,
+          totalAmount: `₹${totalAmount}`,
         },
       },
     });
   } catch (error) {
-    console.error("❌ Checkout error:", error);
+    console.error("Checkout error:", error);
     return res.status(500).json({
       message: "Internal Server Error",
       error: error.message,

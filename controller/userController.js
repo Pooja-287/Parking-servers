@@ -563,14 +563,16 @@ const getDashboardData = async (req, res) => {
         adminId: userId.toString(),
         entryDateTime: { $gte: selectedDate, $lte: endOfDay },
       })
-      .select("vehicleType entryDateTime checkInBy amount paymentMethod");
+      .select("vehicleType entryDateTime checkInBy amount paymentMethod")
+      .populate("checkInBy", "username");
     const checkoutLogs = await checkin
       .find({
         adminId: userId.toString(),
         isCheckedOut: true,
         CheckOutTime: { $gte: selectedDate, $lte: endOfDay },
       })
-      .select("vehicleType CheckOutTime checkOutBy extraAmount paymentMethod");
+      .select("vehicleType CheckOutTime checkOutBy extraAmount paymentMethod")
+      .populate("checkOutBy", "username");
 
     const transactionLogs = [
       ...checkinLogs.map((log) => ({
@@ -578,6 +580,7 @@ const getDashboardData = async (req, res) => {
         type: "checkin",
         vehicleType: log.vehicleType,
         timestamp: log.entryDateTime,
+        name: log.checkInBy?.username || "",
         staff: log.checkInBy,
         amount: log.amount,
         paymentMethod: log.paymentMethod,
@@ -585,6 +588,7 @@ const getDashboardData = async (req, res) => {
       ...checkoutLogs.map((log) => ({
         id: log._id.toString(),
         type: "checkout",
+        name: log.name,
         vehicleType: log.vehicleType,
         timestamp: log.CheckOutTime,
         staff: log.checkOutBy,
