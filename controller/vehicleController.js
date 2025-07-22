@@ -101,14 +101,14 @@ const Checkin = async (req, res) => {
     await newCheckin.save();
 
     // Send WhatsApp message with QR
-    try {
-      const message = `✅ Hello ${name}, your ${cleanedType} (${cleanedPlate}) has been checked in for ${days} day(s).\n🧾 Total: ₹${
-        rate * days
-      }\n💳 Payment: ${paymentMethod}\n\n📎 Please scan the QR below to show your token.`;
-      await sendWhatsAppCheckIn(mobile, url, message);
-    } catch (err) {
-      console.warn("⚠ WhatsApp message failed:", err.message);
-    }
+    // try {
+    //   const message = `✅ Hello ${name}, your ${cleanedType} (${cleanedPlate}) has been checked in for ${days} day(s).\n🧾 Total: ₹${
+    //     rate * days
+    //   }\n💳 Payment: ${paymentMethod}\n\n📎 Please scan the QR below to show your token.`;
+    //   await sendWhatsAppCheckIn(mobile, url, message);
+    // } catch (err) {
+    //   console.warn("⚠ WhatsApp message failed:", err.message);
+    // }
 
     return res.status(201).json({
       message: "✅ Vehicle checked in successfully",
