@@ -1,9 +1,7 @@
-import Staff  from '../model/staff.js';
-import VehicleCheckin from '../model/checkin.js';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs'
-
-
+import Staff from "../model/staff.js";
+import VehicleCheckin from "../model/checkin.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 // const createStaff = async (req, res) => {
 //   try {
@@ -29,7 +27,7 @@ import bcrypt from 'bcryptjs'
 //       password,                // Only for development/debug; remove in production
 //       hashedPassword,
 //       role: "staff",
-//       adminId,        
+//       adminId,
 //       permissions
 //     });
 
@@ -50,12 +48,6 @@ import bcrypt from 'bcryptjs'
 //   }
 // };
 
-
-
-
-
-
-
 const createStaff = async (req, res) => {
   try {
     const { username, password, permissions = [], building } = req.body; // 👈 expects { name, location }
@@ -64,7 +56,8 @@ const createStaff = async (req, res) => {
     // Validate required fields
     if (!username || !password || !building?.name || !building?.location) {
       return res.status(400).json({
-        message: "Username, password, building.name, and building.location are required",
+        message:
+          "Username, password, building.name, and building.location are required",
       });
     }
 
@@ -103,17 +96,11 @@ const createStaff = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
   }
 };
-
-
-
-
-
-
-
-
 
 const getAllStaffs = async (req, res) => {
   try {
@@ -124,14 +111,11 @@ const getAllStaffs = async (req, res) => {
 
     res.status(200).json({ staffs });
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch staff users", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch staff users", error: error.message });
   }
 };
-
-
-
-
-
 
 // 👨‍🔧 Staff: View today’s check-in/checkout
 const getStaffTodayVehicles = async (req, res) => {
@@ -142,13 +126,14 @@ const getStaffTodayVehicles = async (req, res) => {
 
     const vehicles = await VehicleCheckin.find({
       staffId,
-      entryDateTime: { $gte: today }
+      entryDateTime: { $gte: today },
     });
 
     res.status(200).json({ vehicles });
-
   } catch (error) {
-    res.status(500).json({ message: "Failed to get vehicle list", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to get vehicle list", error: error.message });
   }
 };
 
@@ -162,23 +147,18 @@ const getStaffTodayRevenue = async (req, res) => {
     const checkouts = await VehicleCheckin.find({
       staffId,
       isCheckedOut: true,
-      exitDateTime: { $gte: today }
+      exitDateTime: { $gte: today },
     });
 
     const revenue = checkouts.reduce((sum, v) => sum + (v.totalAmount || 0), 0);
 
     res.status(200).json({ revenue: `₹${revenue.toFixed(2)}` });
-
   } catch (error) {
-    res.status(500).json({ message: "Failed to calculate revenue", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to calculate revenue", error: error.message });
   }
 };
-
-
-
-
-
-
 
 // const updateStaff = async (req, res) => {
 //   try {
@@ -200,11 +180,6 @@ const getStaffTodayRevenue = async (req, res) => {
 //     res.status(500).json({ message: "Error", error: error.message });
 //   }
 // };
-
-
-
-
-
 
 const updateStaff = async (req, res) => {
   try {
@@ -252,16 +227,12 @@ const updateStaff = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Error updating staff", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error updating staff", error: error.message });
   }
 };
 
-
-
-
-
-
-    
 const deleteStaff = async (req, res) => {
   try {
     const { staffId } = req.params;
@@ -271,38 +242,42 @@ const deleteStaff = async (req, res) => {
 
     res.status(200).json({ message: "Staff deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Failed to delete staff", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to delete staff", error: error.message });
   }
 };
 
+const GetStaffPermissions = async (req, res) => {
+  try {
+    const { staffId } = req.body;
+    if (!staffId) {
+      return res.status(404).json({ message: "StaffId required" });
+    }
 
- const smartGetStaffPermissions = async (req, res) => {
-  const { role, _id } = req.user;
-  const { staffId } = req.params;
-
-  if (role === "staff" && !staffId) {
-    const staff = await Staff.findById(_id);
-    if (!staff) return res.status(404).json({ message: "Staff not found" });
-    return res.status(200).json({ staffId: staff._id, username: staff.username, permissions: staff.permissions });
-  }
-
-  if (role === "admin" && staffId) {
     const staff = await Staff.findById(staffId);
     if (!staff) return res.status(404).json({ message: "Staff not found" });
-    return res.status(200).json({ staffId: staff._id, username: staff.username, permissions: staff.permissions });
+    return res.status(200).json({
+      staffId: staff._id,
+      username: staff.username,
+      permissions: staff.permissions,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal server Error in Getting Permissions",
+      error: error.message,
+    });
   }
-
-  return res.status(403).json({ message: "Access denied" });
 };
-
-
 
 const setStaffPermissions = async (req, res) => {
   try {
     const { staffId, permissions } = req.body;
 
     if (!staffId || !Array.isArray(permissions)) {
-      return res.status(400).json({ message: "Staff ID and permissions array are required" });
+      return res
+        .status(400)
+        .json({ message: "Staff ID and permissions array are required" });
     }
 
     const staff = await Staff.findById(staffId);
@@ -318,11 +293,13 @@ const setStaffPermissions = async (req, res) => {
       staff: {
         _id: staff._id,
         username: staff.username,
-        permissions: staff.permissions
-      }
+        permissions: staff.permissions,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Error setting permissions", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error setting permissions", error: error.message });
   }
 };
 
@@ -350,17 +327,15 @@ const updateStaffPermissions = async (req, res) => {
       staff: {
         _id: staff._id,
         username: staff.username,
-        permissions: staff.permissions
-      }
+        permissions: staff.permissions,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Error updating permissions", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error updating permissions", error: error.message });
   }
 };
-
-
-
-
 
 // ✅ Export all as ES module default
 export default {
@@ -371,7 +346,7 @@ export default {
   getStaffTodayRevenue,
   updateStaff,
   deleteStaff,
-smartGetStaffPermissions,
+  GetStaffPermissions,
   setStaffPermissions,
   updateStaffPermissions,
 };

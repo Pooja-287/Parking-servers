@@ -64,31 +64,16 @@ router.get("/api/ping", (req, res) => {
   res.send("Server is alive!");
 });
 
-
 // Admin-only
 router.post("/api/create/:id", verifyToken, staffController.createStaff);
 router.get("/api/all", verifyToken, staffController.getAllStaffs);
 router.put("/api/update/:staffId", verifyToken, staffController.updateStaff);
 router.delete("/api/delete/:staffId", verifyToken, staffController.deleteStaff);
-router.get(
-  "/api/staff/permissions",
+
+router.post(
+  "/api/staff/getPermissions",
   verifyToken,
-  checkPermission("smartGetStaffPermissions"),
-  staffController.smartGetStaffPermissions
-);
-router.get(
-  "/api/staff/permissions/:staffId",
-  verifyToken,
-  checkPermission("smartGetStaffPermissions"),
-  isAdmin,
-  staffController.smartGetStaffPermissions
-);
-router.put(
-  "/api/updatePermissions/:staffId",
-  verifyToken,
-  checkPermission("updateStaffPermissions"),
-  isAdmin,
-  staffController.updateStaffPermissions
+  staffController.GetStaffPermissions
 );
 router.post(
   "/api/setPermissions/:staffId",
@@ -110,7 +95,6 @@ router.get(
   verifyStaff,
   staffController.getStaffTodayRevenue
 );
-
 
 router.post(
   "/api/register",

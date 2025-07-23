@@ -391,13 +391,13 @@ const getDashboardData = async (req, res) => {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    const { date } = req.query; // Expect date in YYYY-MM-DD format
+    const { date } = req.query;
     const selectedDate = date ? new Date(date) : new Date();
     selectedDate.setHours(0, 0, 0, 0);
     const endOfDay = new Date(selectedDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Aggregate check-ins
+    // Check-ins
     const checkinsAggregate = await checkin.aggregate([
       {
         $match: {
@@ -413,6 +413,7 @@ const getDashboardData = async (req, res) => {
         },
       },
     ]);
+
     const checkins = {};
     const checkinsRevenue = {};
     checkinsAggregate.forEach((item) => {
@@ -420,7 +421,7 @@ const getDashboardData = async (req, res) => {
       checkinsRevenue[item._id] = item.totalAmount;
     });
 
-    // Aggregate check-outs
+    // Check-outs
     const checkoutsAggregate = await checkin.aggregate([
       {
         $match: {
@@ -437,6 +438,7 @@ const getDashboardData = async (req, res) => {
         },
       },
     ]);
+
     const checkouts = {};
     const checkoutsRevenue = {};
     checkoutsAggregate.forEach((item) => {
@@ -444,18 +446,18 @@ const getDashboardData = async (req, res) => {
       checkoutsRevenue[item._id] = item.totalExtraAmount;
     });
 
-    // Combine for VehicleTotalMoney
     const allVehicleTypes = new Set([
       ...Object.keys(checkins),
       ...Object.keys(checkouts),
     ]);
+
     const VehicleTotalMoney = {};
     allVehicleTypes.forEach((vt) => {
       VehicleTotalMoney[vt] =
         (checkinsRevenue[vt] || 0) + (checkoutsRevenue[vt] || 0);
     });
 
-    // Aggregate payment methods from check-ins
+    // Payment method totals
     const paymentCheckinsAggregate = await checkin.aggregate([
       {
         $match: {
@@ -470,7 +472,6 @@ const getDashboardData = async (req, res) => {
       paymentFromCheckins[item._id] = item.total;
     });
 
-    // Aggregate payment methods from check-outs
     const paymentCheckoutsAggregate = await checkin.aggregate([
       {
         $match: {
@@ -486,18 +487,18 @@ const getDashboardData = async (req, res) => {
       paymentFromCheckouts[item._id] = item.total;
     });
 
-    // Combine for PaymentMethod
     const allPaymentMethods = new Set([
       ...Object.keys(paymentFromCheckins),
       ...Object.keys(paymentFromCheckouts),
     ]);
+
     const PaymentMethod = {};
     allPaymentMethods.forEach((pm) => {
       PaymentMethod[pm] =
         (paymentFromCheckins[pm] || 0) + (paymentFromCheckouts[pm] || 0);
     });
 
-    // Aggregate staff from check-ins
+    // Staff Performance
     const staffCheckinsAggregate = await checkin.aggregate([
       {
         $match: {
@@ -514,7 +515,6 @@ const getDashboardData = async (req, res) => {
       },
     ]);
 
-    // Aggregate staff from check-outs
     const staffCheckoutsAggregate = await checkin.aggregate([
       {
         $match: {
@@ -532,72 +532,120 @@ const getDashboardData = async (req, res) => {
       },
     ]);
 
-    // Combine staff data
     const staffPerformance = {};
     staffCheckinsAggregate.forEach((item) => {
       staffPerformance[item._id] = {
-        username: item._id,
+        userId: item._id,
         checkIns: item.checkIns,
         checkOuts: 0,
         revenue: item.revenue,
       };
     });
+
     staffCheckoutsAggregate.forEach((item) => {
       if (staffPerformance[item._id]) {
         staffPerformance[item._id].checkOuts += item.checkOuts;
         staffPerformance[item._id].revenue += item.revenue;
       } else {
         staffPerformance[item._id] = {
-          username: item._id,
+          userId: item._id,
           checkIns: 0,
           checkOuts: item.checkOuts,
           revenue: item.revenue,
         };
       }
     });
-    const staffData = Object.values(staffPerformance);
 
-    // Fetch transaction logs
+    const staffIds = Object.keys(staffPerformance);
+    const staffFromAdmin = await Admin.find({ _id: { $in: staffIds } }).select(
+      "username role"
+    );
+    const staffFromStaff = await Staff.find({ _id: { $in: staffIds } }).select(
+      "username role"
+    );
+
+    const staffMap = {};
+    [...staffFromAdmin, ...staffFromStaff].forEach((user) => {
+      staffMap[user._id.toString()] = {
+        username: user.username,
+        role: user.role,
+      };
+    });
+
+    const staffData = Object.values(staffPerformance).map((staff) => ({
+      username: staffMap[staff.userId]?.username || "Unknown",
+      userRole: staffMap[staff.userId]?.role || "Unknown",
+      checkIns: staff.checkIns,
+      checkOuts: staff.checkOuts,
+      revenue: staff.revenue,
+    }));
+
+    // Transaction Logs
     const checkinLogs = await checkin
       .find({
         adminId: userId.toString(),
         entryDateTime: { $gte: selectedDate, $lte: endOfDay },
       })
-      .select("vehicleType entryDateTime checkInBy amount paymentMethod")
-      .populate("checkInBy", "username");
+      .select("name vehicleType entryDateTime checkInBy amount paymentMethod");
+
     const checkoutLogs = await checkin
       .find({
         adminId: userId.toString(),
         isCheckedOut: true,
         CheckOutTime: { $gte: selectedDate, $lte: endOfDay },
       })
-      .select("vehicleType CheckOutTime checkOutBy extraAmount paymentMethod")
-      .populate("checkOutBy", "username");
+      .select(
+        "name vehicleType CheckOutTime checkOutBy extraAmount paymentMethod"
+      );
 
-    const transactionLogs = [
+    const transactionLogsRaw = [
       ...checkinLogs.map((log) => ({
         id: log._id.toString(),
+        uname: log.name || "",
         type: "checkin",
         vehicleType: log.vehicleType,
         timestamp: log.entryDateTime,
-        name: log.checkInBy?.username || "",
-        staff: log.checkInBy,
+        staffId: log.checkInBy,
         amount: log.amount,
         paymentMethod: log.paymentMethod,
       })),
       ...checkoutLogs.map((log) => ({
         id: log._id.toString(),
+        uname: log.name || "",
         type: "checkout",
-        name: log.name,
         vehicleType: log.vehicleType,
         timestamp: log.CheckOutTime,
-        staff: log.checkOutBy,
+        staffId: log.checkOutBy,
         amount: log.extraAmount,
         paymentMethod: log.paymentMethod,
       })),
     ];
 
-    // Set allData to checkins (total check-ins per vehicle type)
+    const allLogStaffIds = [
+      ...new Set(transactionLogsRaw.map((log) => log.staffId?.toString())),
+    ];
+
+    const logStaffFromAdmin = await Admin.find({
+      _id: { $in: allLogStaffIds },
+    }).select("username role");
+    const logStaffFromStaff = await Staff.find({
+      _id: { $in: allLogStaffIds },
+    }).select("username role");
+
+    const logStaffMap = {};
+    [...logStaffFromAdmin, ...logStaffFromStaff].forEach((user) => {
+      logStaffMap[user._id.toString()] = {
+        username: user.username,
+        role: user.role,
+      };
+    });
+
+    const transactionLogs = transactionLogsRaw.map((log) => ({
+      ...log,
+      staff: logStaffMap[log.staffId]?.username || "Unknown",
+      userRole: logStaffMap[log.staffId]?.role || "Unknown",
+    }));
+
     const allData = { ...checkins };
 
     return res.status(200).json({
