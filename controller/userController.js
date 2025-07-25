@@ -130,7 +130,6 @@ const getPrices = async (req, res) => {
   try {
     const user = req.user;
     const adminId = user.role === "admin" ? user._id : user.adminId;
-
     if (!adminId) {
       return res.status(400).json({ message: "Admin ID is required" });
     }
@@ -140,7 +139,6 @@ const getPrices = async (req, res) => {
     if (!priceDoc) {
       return res.status(404).json({ message: "Price not found for the admin" });
     }
-
     res.status(200).json(priceDoc);
   } catch (error) {
     console.error("❌ Error in getPrice:", error.message);
