@@ -114,18 +114,12 @@ router.delete(
   verifyToken,
   userController.deleteAdmin
 );
-router.post("/api/addPrice/daily", verifyToken, userController.addDailyPrices);
 router.post(
-  "/api/addPrice/monthly",
-  verifyToken,
-  userController.addMonthlyPrices
-);
-router.put(
   "/api/updatePrice/daily",
   verifyToken,
   userController.updateDailyPrices
 );
-router.put(
+router.post(
   "/api/updatePrice/monthly",
   verifyToken,
   userController.updateMonthlyPrices
