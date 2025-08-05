@@ -108,7 +108,7 @@ router.post(
 );
 router.get("/api/getAllAdmins", verifyToken, userController.getAllAdmins);
 router.get("/api/getAdminById/:id", verifyToken, userController.getAdminById);
-router.put("/api/updateAdmin/:id", verifyToken, userController.updateAdmin);
+router.put("/api/updateAdmin", verifyToken, userController.updateAdmin);
 router.delete(
   "/api/deleteAdmin/delete/:id",
   verifyToken,

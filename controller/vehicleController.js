@@ -34,7 +34,7 @@ const Checkin = async (req, res) => {
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
-
+    console.log(user);
     const cleanedPlate = vehicleNo.replace(/\s/g, "").toUpperCase();
     const cleanedType = vehicleType.trim().toLowerCase();
     const userRole = user.role;
@@ -132,7 +132,6 @@ const Checkout = async (req, res) => {
       return res.status(400).json({ message: "tokenId is required" });
     }
 
-    // 1. Find check-in record
     const vehicle = await VehicleCheckin.findOne({ tokenId });
 
     if (!vehicle) {
@@ -142,6 +141,13 @@ const Checkout = async (req, res) => {
     }
 
     if (vehicle.isCheckedOut && !previewOnly) {
+      return res.status(400).json({
+        message: "Vehicle is already checked out",
+        exitTimeIST: convertToISTString(vehicle.exitDateTime),
+      });
+    }
+
+    if (vehicle.isCheckedOut) {
       return res.status(400).json({
         message: "Vehicle is already checked out",
         exitTimeIST: convertToISTString(vehicle.exitDateTime),

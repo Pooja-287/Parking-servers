@@ -263,11 +263,22 @@ const getAdminById = async (req, res) => {
 
 const updateAdmin = async (req, res) => {
   try {
-    const { username, password, profileImage } = req.body;
+    const { username, oldPassword, password, profileImage } = req.body;
+    const id = req.user._id;
 
     const updateData = {};
     if (username?.trim()) {
       updateData.username = username.trim();
+    }
+    if (oldPassword && password) {
+      let user = await Admin.findById(id);
+      const hashed = user.password;
+      const isPasswordValid = await bcrypt.compare(oldPassword, hashed);
+      if (!isPasswordValid) {
+        return res
+          .status(401)
+          .json({ message: "Invalid username or password (wrong password)" });
+      }
     }
 
     if (password) {
@@ -285,14 +296,10 @@ const updateAdmin = async (req, res) => {
       });
     }
 
-    const updatedAdmin = await Admin.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const updatedAdmin = await Admin.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedAdmin) {
       return res

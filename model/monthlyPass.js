@@ -13,6 +13,11 @@ const monthlyPassSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
+    vehicleType: {
+      type: String,
+      required: true,
+      default: "",
+    },
     mobile: {
       type: String,
       required: true,

@@ -179,6 +179,8 @@ const extendPass = async (req, res) => {
       return res.status(404).json({ message: "Pass not found" });
     }
 
+    console.log(pass);
+
     const now = new Date();
     const currentEndDate = new Date(pass.endDate);
     const baseDate = currentEndDate < now ? now : currentEndDate;
