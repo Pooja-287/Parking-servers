@@ -78,7 +78,7 @@ const Checkin = async (req, res) => {
     // Generate token and QR
     const tokenId = uuidv4();
     const qrCodeBase64 = await QRCode.toDataURL(tokenId);
-    const url = await uploadQR(qrCodeBase64);
+    // const url = await uploadQR(qrCodeBase64);
 
     // Save check-in
     const newCheckin = new VehicleCheckin({
