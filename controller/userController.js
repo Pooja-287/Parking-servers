@@ -205,8 +205,7 @@ const loginUser = async (req, res) => {
         role,
         email: user.email || null,
         profileImage: user.profileImage || null,
-        // Permissions: user.Permissions || []
-        permissions: user.permissions, // ✅ Must be added
+        permissions: user.permissions,
       },
     });
   } catch (error) {

@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 5000;
 // Database Connection
 const ConnectDB = async () => {
   try {
-    const connect = await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log("DB Connected Successfully");
   } catch (error) {
     console.log("Error connecting to database");
