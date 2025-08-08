@@ -132,7 +132,6 @@ const Checkout = async (req, res) => {
     }
 
     const vehicle = await VehicleCheckin.findOne({ tokenId });
-
     if (!vehicle) {
       return res
         .status(404)
@@ -201,8 +200,7 @@ const Checkout = async (req, res) => {
     const totalAmount = paidAmount + extraAmount;
     const readableDuration = ` ${usedDays} day${usedDays > 1 ? "s" : ""}`;
 
-    // 👇 If previewOnly is true, just return the info without saving
-    if (previewOnly) {
+    if (previewOnly === true && !vehicle.isCheckedOut) {
       return res.status(200).json({
         message: "Preview before checkout",
         data: {
@@ -232,18 +230,18 @@ const Checkout = async (req, res) => {
     vehicle.exitDateTime = cleanExit;
     vehicle.totalParkedHours = `${usedDays * 24}`;
     vehicle.isCheckedOut = true;
-    vehicle.checkedOutBy = user.name || user.username || "Unknown";
+    vehicle.checkOutBy = user.name || user.username || "Unknown";
     vehicle.checkedOutByRole = userRole;
 
     await vehicle.save();
 
-    // 6. Send WhatsApp message
-    try {
-      const msg = `🚗 Hello ${vehicle.name}, your ${vehicle.vehicleType} (${vehicle.vehicleNo}) has been successfully checked out.\n⏱ Duration: ${readableDuration}\n💰 Amount Paid: ₹${totalAmount}`;
-      await sendWhatsAppMessage(vehicle.mobile, msg);
-    } catch (err) {
-      console.warn("⚠ WhatsApp message failed during checkout:", err.message);
-    }
+    // // 6. Send WhatsApp message
+    // try {
+    //   const msg = `🚗 Hello ${vehicle.name}, your ${vehicle.vehicleType} (${vehicle.vehicleNo}) has been successfully checked out.\n⏱ Duration: ${readableDuration}\n💰 Amount Paid: ₹${totalAmount}`;
+    //   await sendWhatsAppMessage(vehicle.mobile, msg);
+    // } catch (err) {
+    //   console.warn("⚠ WhatsApp message failed during checkout:", err.message);
+    // }
 
     // 7. Send final receipt
     res.status(200).json({
